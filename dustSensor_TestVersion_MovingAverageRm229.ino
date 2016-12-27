@@ -77,6 +77,7 @@ int movingAverageAdcVoltageArray[NoOfDataToEncode];
 // test merge : issue.Test2
 // test merge : issue.Test2
 // test login ??
+// branch : issue1.Test3
 
 void setup()
 {
