@@ -73,6 +73,8 @@ int temperatureArray[NoOfDataToEncode];
 int adcVoltageArray[NoOfDataToEncode];
 int movingAverageAdcVoltageArray[NoOfDataToEncode];
 
+// test for github merge
+
 void setup()
 {
 // dynamicMemoryAllocation();
