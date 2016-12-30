@@ -14,13 +14,14 @@
 #include "NTP_WiFi.h"
 // Define variables and constants
 DateTime myRTC;
-time_t myEpochNTP, myEpochRTC;
+time_t myEpochRTC;
 tm myTimeNTP, myTimeRTC;
 uint32_t counter = 0;
 bool flagRTC = true; // First time update of RTC
-  // Prototypes
-uint32_t sendNTPpacket(IPAddress& address);
 
+// Prototypes
+uint32_t sendNTPpacket(IPAddress& address);
+unsigned int nextDataSendMinuteOneShot;
 
 // Timer
 #define TIMER_BASE TIMERA2_BASE
@@ -73,11 +74,11 @@ int temperatureArray[NoOfDataToEncode];
 int adcVoltageArray[NoOfDataToEncode];
 int movingAverageAdcVoltageArray[NoOfDataToEncode];
 
-// test for github merge
-// test merge : issue.Test2
-// test merge : issue.Test2
-// test login ??
-// branch : issue1.Test3
+// Network SSID , password
+//char* networkID = "SungwonGawon2_5G";
+//char* networkID = "ByoungLoh" ;
+char* networkID = "NetweeN";
+char* password = "car391133";
 
 void setup()
 {
@@ -85,22 +86,37 @@ void setup()
  intialization(); 
  digitalWrite(DC_FAN,1); // turn on fan
  
- // RTC initialization
- myRTC.begin();
- myRTC.setTimeZone(tz_KOR);
- 
+ // Network Clock initialization
+  // Real-Time Clock Update
+  myRTC.begin();
+  myRTC.setTimeZone(tz_KOR);
+  myRTC = RealTimeClockUpdate(myRTC);
+  unsigned long int timeInMin; 
+   timeInMin= getCurrentTime(myRTC);
+   Serial.print("time:");Serial.println(timeInMin);
+   nextDataSendMinuteOneShot = timeInMin +1;
  //delay(10000); // wait for sensor to be ready 
  }
 
+
+
 void loop()
 {
-  // Real-Time Clock Update
-  RealTimeClockUpdate();
   
-  // put your main code here, to run repeatedly:
+  // data send flag is updated every 2 minutes
+  static bool dataSendFlag;
+  char updateIntervalInMinutes = 2; // unit : minutes
+  dataSendFlag = dataSendFlagHandler(nextDataSendMinuteOneShot, updateIntervalInMinutes, myRTC);
+  
+  // clock update (myRTC : RTC instance)
+  unsigned int updateTime = 9;  // clock is updated via web 9th minutes of every hour
+  myRTC = updateRealTimeClock(myRTC,updateTime);
+  
+  // Hibernate
   #define HIBERNATE_TIME ((32768)*(5)*(60))      // 4 min ; time based on 32.768 kHz clock
  // #define RESET_INTERVAL_HOUR         6      // software reset every 6 hour
  static  char **dataToPostToGoogle;              // double pointer to encoded data string
+ 
  // display adc results every 1 second
    if(flagFor1sec) 
    {
@@ -116,13 +132,15 @@ void loop()
   }
   // if postingInverval seconds have passed since your last connection
   // then connect again and send data:
-  if (millis() - lastConnectionTime > postingInterval)
-     {
+  if (dataSendFlag)
+     {  
+       
        //     char **dataToPostToGoogle;
        dataToPostToGoogle = postDataEncoding(temperatureArray,humidityArray,adcVoltageArray,movingAverageAdcVoltageArray);
        httpRequest(dataToPostToGoogle);
      //  Serial.println("Hibernating ...");delay(100);
    //    timerA2PWM.softReset(HIBERNATE_TIME);
+        
      }
      // software reset
     // if (tick1Minute > 1)
@@ -149,10 +167,8 @@ void intialization() {
   adcCh3.begin();
   tempHumiditySensor.begin();
   pinMode(DC_FAN,OUTPUT);  // FAN ON-OFF CONTRON
-//  digitalWrite(DC_FAN,1); // turn on fan 
-  setupWifi("NetweeN","car391133"); // setup wifi
-//  setupWifi("ByoungLoh","car391133"); // setup wifi
- //  setupWifi("SungwonGawon2_5G","car391133"); // setup wifi
+//  digitalWrite(DC_FAN,1); // turn on fan
+  connectToWifi(networkID,password); // setup wifi
 }
  
 void storeDataForTransmission(int *array, int data)
@@ -335,7 +351,7 @@ String data; // data to post
           }
    
       Serial.print("posted data: ");Serial.println(data);
-      delay(50);
+      delay(50);  // required but i don't know exactly why?
       // FREE DYNAMIC MEMORY  
       free(dataStringArray[k]);
     }
@@ -344,7 +360,7 @@ String data; // data to post
       // if you couldn't make a connection:
       Serial.println("connection failed");
     }
-    delay(800); // delay for posting data to GOOGLE
+    delay(800); // delay for posting data to GOOGLE (required !!)
 }
     
     // TURN OFF FAN
@@ -376,7 +392,7 @@ void printWifiStatus()
   Serial.println(" dBm");
 }
 
-void setupWifi(char* ssid, char *password)
+void connectToWifi(char* ssid, char *password)
 {
   // your network name also called SSID
 //char *ssid = "NetweeN";
@@ -384,7 +400,7 @@ void setupWifi(char* ssid, char *password)
 //char *password = "car391133";
  // attempt to connect to Wifi network:
  const int delayTime_ms = 500;
- const char connectionTryMaxCount = 5;
+ const char connectionTryMaxCount = 5; // max. connectionn try before give-up
  static int connectionTrialCount;
     Serial.print("Attempting to connect to Network named: ");
     // print the network name (SSID);
@@ -399,7 +415,7 @@ void setupWifi(char* ssid, char *password)
       connectionTrialCount++;
       if(connectionTrialCount > connectionTryMaxCount)
       {
-        timerA2PWM.softReset(10000L);
+        timerA2PWM.softReset(10000L); // reboot system to re-connect
         connectionTrialCount = 0;
       }
       
@@ -419,6 +435,154 @@ void setupWifi(char* ssid, char *password)
     // Print the WiFi status.
     printWifiStatus();
 }
+
+//*************  Clock Update Sub-routines *****************//
+DateTime RealTimeClockUpdate(DateTime myRTC)
+{
+  
+  time_t myEpochNTP, myEpochRTC;
+  tm myTimeRTC;
+  char loop_cnt; 
+  unsigned int hour, minute, timeInMinutes; 
+  bool flagRTCU = true;
+  while (flagRTCU) // real time clock update via web
+  {
+  bool flagNTP = getTimeNTP(myEpochNTP);
+  
+  Serial.print("NTP ? ");Serial.println(flagNTP, DEC);
+  Serial.println(myEpochNTP);
+  if (!flagNTP)
+    {
+        flagRTCU = false;
+        myRTC.setTime(myEpochNTP);
+        myEpochRTC = myRTC.getTime();
+         Serial.println(myEpochRTC);
+        Serial.println("*** CC3200 NTC updated: Greenwich Time");
+        convertEpoch2Structure(myEpochRTC, myTimeRTC);
+        Serial.println(convertDateTime2String(myTimeRTC));
+        Serial.print("hour : min ==> ");
+        Serial.print(myTimeRTC.tm_hour);
+        Serial.print(":");
+        Serial.println(myTimeRTC.tm_min);
+    }
+   else
+   {
+     // wait for 5 secondes before attempting a retry
+     for (int8_t i = 5; i > 0; i--)
+     {
+        Serial.print(".");
+        delay(1000);
+      }
+      loop_cnt++; // increase loop counter if it exceeds a certain number cancel update
+      Serial.print(" loop counter:");
+      Serial.println(loop_cnt);
+   }
+  }
+  
+   return myRTC;
+}
+
+unsigned long int getCurrentTime(DateTime myRTC)
+{
+  time_t myEpochRTC;
+  tm myTimeRTC; 
+  unsigned long int currentTime;
+  
+  myEpochRTC = myRTC.getTime();
+   convertEpoch2Structure(myEpochRTC, myTimeRTC);
+    //   Serial.println(convertDateTime2String(myTimeRTC));
+    //    Serial.print("hour : min ==> ");
+    //    Serial.print(myTimeRTC.tm_hour);
+    //    Serial.print(":");
+    //    Serial.println(myTimeRTC.tm_min);
+        
+   // currentTimeInSecond = myTimeRTC.tm_hour * 3600 + myTimeRTC.tm_min * 60 + myTimeRTC.tm_sec;
+   // Serial.println(currentTimeInSecond);
+   currentTime = myTimeRTC.tm_min;
+   
+    return currentTime;
+} 
+
+// raise data send flag when time equals data-send-time which increments at a certain time-interval
+bool dataSendFlagHandler(unsigned int nextDataSendTimeOneShot, char incrementTime, DateTime myRTC )
+{
+  unsigned int currentMinute, currentTime;
+  static unsigned int dataSendTime;
+  static unsigned long loopCnt;
+  bool dataSendFlag;
+  
+  loopCnt++;
+  // get current time
+  currentMinute = getCurrentTime(myRTC);
+  currentTime = currentMinute;
+  
+  // excute only once for first update
+  if(loopCnt == 1) 
+      dataSendTime = nextDataSendTimeOneShot; // first data send ; one minute after the setup()
+   
+   // when current time equals dataSendTime dataSendFlag is raised    
+  if (currentTime == dataSendTime)
+  {
+    // set updateFlag
+    dataSendFlag = true;
+    
+    // increment the send-time to next data send time
+    dataSendTime = dataSendTime + incrementTime;
+    
+    // reset dataSendTime when it gets greater than 60
+      if(dataSendTime >= 60)
+         dataSendTime -= 60;
+        return dataSendFlag;
+  }
+  else 
+  {
+    dataSendFlag = false; // reset data flag for next check for data send
+    return dataSendFlag;
+  }
+}
+
+// Clock update
+
+DateTime updateRealTimeClock(DateTime myRTC, unsigned int updateTime)
+{
+  // check current time
+  // if current time passes preset update time, then updates. 
+  // If update is successful, set updatedFlag to true
+  // update frequency is once a day
+  
+  static bool updatedFlag = false;
+  unsigned int currentTime, currentMinute;
+  
+  // check current time
+  currentMinute = getCurrentTime(myRTC);
+  currentTime = currentMinute;
+        
+  if (currentTime > updateTime)
+      {
+        if (updatedFlag == false)
+          {
+            //update !!
+            myRTC = RealTimeClockUpdate(myRTC);
+            updatedFlag = true;
+            Serial.println("Clock is updated via Web server !");
+         //   Serial.println(updatedFlag);
+            return myRTC;
+          }
+        else
+         {
+           // Do nothing.
+         }
+      }
+   else
+   {
+     // reset updatedFlag
+     updatedFlag = false;
+   }   
+   // Serial.println(updatedFlag);        
+}
+
+// *********** END OF CLOCK-UPDATE SUB-ROUTINES ************************* //
+
 
 /*****************************************************************/
 /******************  DEPRECATED **********************************/
@@ -485,56 +649,4 @@ unsigned long movingAverageOfP2CountFor30Sec(unsigned long stream)
   return pCount_avg;
 }
 
-void RealTimeClockUpdate()
-{
-  bool flagNTP = getTimeNTP(myEpochNTP);
 
-    Serial.print("NTP ? ");
-    Serial.println(flagNTP, DEC);
-    Serial.println(myEpochNTP);
-
-    if (!flagNTP)
-    {
-        // Set time to RTC, only once
-        //if (flagRTC)
-       // {
-            myRTC.setTime(myEpochNTP);
-            flagRTC = false;
-            Serial.println("*** CC3200 RTC updated!");
-       // }
-
-        myEpochRTC = myRTC.getTime();
-
-        // Check difference
-        Serial.print("NTP - RTC = \t");
-        /*
-            Serial.print(myEpochNTP, DEC);
-            Serial.print("\t - \t");
-            Serial.print(myEpochRTC, DEC);
-            Serial.print("\t = \t");
-        */
-        Serial.println(myEpochNTP - myEpochRTC, DEC);
-
-        convertEpoch2Structure(myEpochNTP, myTimeNTP);
-        convertEpoch2Structure(myEpochRTC, myTimeRTC);
-
-        // Print date and time nicely
-        Serial.print("NTP = \t");
-        Serial.print(convertDateTime2String(myTimeNTP));
-
-        Serial.print("\rRTC = \t");
-        Serial.print(convertDateTime2String(myEpochRTC));
-        Serial.println(" ");
-
-        Serial.println(formatDateTime2String("Korea current time is %I:%M %p.", myRTC.getLocalTime()));
-    }
-
-    for (int8_t i = 10; i > 0; i--)
-    {
-        Serial.print(".");
-        Serial.print(i - 1, DEC);
-        Serial.print("\r");
-        delay(1000);
-    }
-    Serial.println("  ");
-}
