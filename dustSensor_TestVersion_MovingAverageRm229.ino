@@ -1,3 +1,6 @@
+// DUST SENSOR
+// REVISION HISTORY BY DR. B LOH.
+// 12.30.2016 : CLOCK-MODULE IS ADDED
 
 // Moving Average of ADC voltage
 
