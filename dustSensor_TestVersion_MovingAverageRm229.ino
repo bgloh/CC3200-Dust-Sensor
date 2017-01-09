@@ -191,11 +191,12 @@ static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage 
   #define BUFFER_SIZE  120  
  static char *bufferEncoding[NoOfDataToEncode]; 
  static unsigned long data_index;
+ char id[] = "rm229";  // device id string
  char batteryStatus = (HDC1000Configuration & 0x0800) >> 11 ;
  for(char k=0;k<NoOfDataToEncode; k++)
   {
     bufferEncoding[k]     = (char*)calloc(BUFFER_SIZE, sizeof(char));
-    sprintf( bufferEncoding[k], "id=%d&time=2016&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",data_index, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
+    sprintf( bufferEncoding[k], "id=%s&time=2016&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",id, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
   }
   data_index++;
   return  bufferEncoding;
