@@ -81,7 +81,7 @@ int movingAverageAdcVoltageArray[NoOfDataToEncode];
 // Network SSID , password
 //char* networkID = "SungwonGawon2_5G";
 //char* networkID = "ByoungLoh" ;
-char* networkID = "NetweeN";
+char* networkID = "netWeeN";
 char* password = "car391133";
 
 void setup()
