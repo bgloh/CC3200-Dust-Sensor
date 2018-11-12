@@ -80,7 +80,7 @@ int movingAverageAdcVoltageArray[NoOfDataToEncode];
 // Network SSID , password
 //char* networkID = "SungwonGawon2_5G";
 //char* networkID = "ByoungLoh" ;
-char* networkID = "NetweeN";
+char* networkID = "netWeeN";
 char* password = "car391133";
 
 void setup()
@@ -93,7 +93,7 @@ void setup()
   // Real-Time Clock Update
   myRTC.begin();
   myRTC.setTimeZone(tz_KOR);
-  myRTC = RealTimeClockUpdate(myRTC);
+ // myRTC = RealTimeClockUpdate(myRTC); // STOP WEB-BASED CLOCK UPDATE
   unsigned long int timeInMin; 
    timeInMin= getCurrentTime(myRTC);
    Serial.print("time:");Serial.println(timeInMin);
@@ -108,7 +108,7 @@ void loop()
   
   // data send flag is updated every 2 minutes
   static bool dataSendFlag;
-  char updateIntervalInMinutes = 2; // unit : minutes
+  char updateIntervalInMinutes = 1; // unit : minutes
   dataSendFlag = dataSendFlagHandler(nextDataSendMinuteOneShot, updateIntervalInMinutes, myRTC);
   
   // clock update (myRTC : RTC instance)
@@ -194,7 +194,7 @@ static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage 
  for(char k=0;k<NoOfDataToEncode; k++)
   {
     bufferEncoding[k]     = (char*)calloc(BUFFER_SIZE, sizeof(char));
-    sprintf( bufferEncoding[k], "id=%d&time=2016&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",data_index, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
+    sprintf( bufferEncoding[k], "id=%d&time=%d&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",data_index,tick1Minute, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
   }
   data_index++;
   return  bufferEncoding;
