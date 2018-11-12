@@ -112,8 +112,8 @@ void loop()
   dataSendFlag = dataSendFlagHandler(nextDataSendMinuteOneShot, updateIntervalInMinutes, myRTC);
   
   // clock update (myRTC : RTC instance)
-  unsigned int updateTime = 9;  // clock is updated via web 9th minutes of every hour
-  myRTC = updateRealTimeClock(myRTC,updateTime);
+ // unsigned int updateTime = 9;  // clock is updated via web 9th minutes of every hour
+ // myRTC = updateRealTimeClock(myRTC,updateTime);
   
   // Hibernate
   #define HIBERNATE_TIME ((32768)*(5)*(60))      // 4 min ; time based on 32.768 kHz clock
@@ -194,7 +194,7 @@ static char** postDataEncoding(int* temperature, int* humidity, int *adcVoltage 
  for(char k=0;k<NoOfDataToEncode; k++)
   {
     bufferEncoding[k]     = (char*)calloc(BUFFER_SIZE, sizeof(char));
-    sprintf( bufferEncoding[k], "id=%d&time=%d&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",data_index,tick1Minute, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
+    sprintf( bufferEncoding[k], "id=%d&minute=%d&temperature=%d&humidity=%d&PM2_5=%d&MovingAverage=%d&BatteryStatus=%d",data_index,tick1Minute, *(temperature+k),*(humidity+k),*(adcVoltage +k),*(movAveragedAdcVoltage+k),batteryStatus);
   }
   data_index++;
   return  bufferEncoding;
@@ -341,7 +341,8 @@ String data; // data to post
       {
         // send the HTTP POST request: (Google sheet ==> CC3200 Energia Google Post with Dweet For Subway PM2_5 Test)
        // client.println("POST /macros/s/AKfycbxV4wmDa5fe9zPsLnWL0dKoNcFJLo2te07DBw-9beMFMHypi3M/exec HTTP/1.1");
-        client.println("POST /macros/s/AKfycbxQmn0Ly3tcE9sCied0Rh_XV6-k9reEMkW0lCkCvUai5J3hgFI/exec HTTP/1.1");
+       // client.println("POST /macros/s/AKfycbxQmn0Ly3tcE9sCied0Rh_XV6-k9reEMkW0lCkCvUai5J3hgFI/exec HTTP/1.1");
+       client.println("POST /macros/s/AKfycbyWTOfl54dmd4IL8gXPmCfIWDXxLKan48Orz-fkSR5nJ19exi9a/exec HTTP/1.1");
         
         client.println("Host: script.google.com");
         client.println("Content-Type: application/x-www-form-urlencoded");
